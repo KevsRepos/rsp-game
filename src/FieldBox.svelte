@@ -1,8 +1,8 @@
 <script>
-import { getContext } from "svelte";
+import { getContext, setContext } from "svelte";
 
 
-    export let field, arrayAs2dField, setArrayAs2dField;
+    export let field, arrayAs2dField, setArrayAs2dField, soldier, soldierCount, gameStart;
 
     const rows = getContext('rows');
     const columns = getContext('columns');
@@ -35,6 +35,7 @@ import { getContext } from "svelte";
         for (const [key, entries] of Object.entries(nextFields)) {
             movingPossibilities[key] = 
             !entries ? false :
+            entries.opponent ? entries.place :
             entries.self ? false :
             entries.place;
         }
@@ -60,9 +61,16 @@ import { getContext } from "svelte";
     }
 
     const movePlayer = () => {
+        const fromSoldier = arrayAs2dField[field.playerFrom.row][field.playerFrom.column].playerSoldier;
+
         setArrayAs2dField(field.place.row, field.place.column, 'self', true);
-        setArrayAs2dField(field.playerFrom.row, field.playerFrom.column, 'self', false);
         setArrayAs2dField(field.place.row, field.place.column, 'showMove', false);
+        setArrayAs2dField(field.place.row, field.place.column, 'playerSoldier', fromSoldier);
+
+        setArrayAs2dField(field.playerFrom.row, field.playerFrom.column, 'self', false);
+        setArrayAs2dField(field.playerFrom.row, field.playerFrom.column, 'playerSoldier', null);
+
+        setArrayAs2dField(field.place.row, field.place.column, 'playerFrom', null);
 
         removeMovingPossibilities();
     }
@@ -73,6 +81,13 @@ import { getContext } from "svelte";
 
     const moveToField = () => {
 
+    }
+
+    const setSoldier = () => {
+        if(soldier !== "" && !field.playerSoldier) {
+            if(soldierCount[soldier] === 0) return;
+            setArrayAs2dField(field.place.row, field.place.column, 'playerSoldier', soldier);
+        }
     }
 </script>
 
@@ -85,17 +100,32 @@ import { getContext } from "svelte";
     .showMovable {
         background-color: green;
     }
+    .showAttackable {
+        background-color: red;
+    }
 </style>
 
-{#if field.self}
-<div class="box self" on:click={playerClicked}>
+{#if !gameStart && field.self && !field.playerSoldier}
+<div class="box self" on:click={setSoldier}>
     Du
+</div>
+{:else if !gameStart && field.self}
+<div class="box self" on:click={setSoldier}>
+    {field.playerSoldier}
+</div>
+{:else if gameStart && field.self}
+<div class="box self" on:click={playerClicked}>
+    {field.playerSoldier}
+</div>
+{:else if field.opponent && field.showMove}
+<div class="box opponent showAttackable">
+    Gegner
 </div>
 {:else if field.opponent}
 <div class="box opponent">
     Gegner
 </div>
-{:else if field.showMove}
+{:else if gameStart && field.showMove}
 <div class="box showMovable" on:click={movePlayer}>
 
 </div>

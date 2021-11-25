@@ -1,5 +1,5 @@
 <script>
-import { onMount, setContext } from "svelte";
+import { getContext, onMount, setContext } from "svelte";
 import FieldBox from './FieldBox.svelte';
 
     const rows = 8;
@@ -7,11 +7,33 @@ import FieldBox from './FieldBox.svelte';
 
     setContext('rows', rows);
     setContext('columns', columns);
+    
+    let gameStart = false;
+
+    let currentSoldierSelection = '';
+
+    const soldiers = [
+        'rock',
+        'scissors',
+        'paper',
+        'king'
+    ];
+
+    let soldierCount = {
+        rock: 5,
+        scissors: 5,
+        paper: 5,
+        king: 1
+    }
 
     let arrayAs2dField = new Array(columns);
 
     const setArrayAs2dField = (row, column, property, value) => {
-       arrayAs2dField[row][column][property] = value; 
+       arrayAs2dField[row][column][property] = value;
+
+       if(property === 'playerSoldier' && !gameStart) {
+           soldierCount[value] -= 1;
+       }
     }
 
     for (let rows = 0; rows < arrayAs2dField.length; rows++) {
@@ -27,7 +49,8 @@ import FieldBox from './FieldBox.svelte';
                 opponent: false,
                 freeSpace: false,
                 showMove: false,
-                playerFrom: null
+                playerFrom: null,
+                playerSoldier: null
             };
         }
     }
@@ -44,11 +67,24 @@ import FieldBox from './FieldBox.svelte';
                 }
             });
         });
-
-        console.table(arrayAs2dField);
     });
 
+    const setSoldierSelection = (soldier) => {
+        if(soldierCount[soldier] === 0) return;
+
+        if(currentSoldierSelection === soldier) {
+            currentSoldierSelection = '';
+        }else {
+            currentSoldierSelection = soldier;
+        }
+    }
+
     $: console.log(arrayAs2dField);
+
+    $: if(Object.values(soldierCount).every(x => x === 0)) {
+        console.log('game');
+        gameStart = true;
+    }
 </script>
 
 <style>
@@ -56,15 +92,22 @@ import FieldBox from './FieldBox.svelte';
          display: flex;
          flex-direction: row;
     }
+    .btns {
+        margin: 10px;
+    }
 </style>
 
 <main>
-    <!-- {arrayAs2dField} -->
     {#each arrayAs2dField as column}
         <div class="row">
             {#each column as row}
-                <FieldBox field={row} {arrayAs2dField} {setArrayAs2dField} />
+                <FieldBox field={row} {arrayAs2dField} {setArrayAs2dField} soldier={currentSoldierSelection} {soldierCount} {gameStart} />
             {/each}
         </div>
     {/each}
+    <div class="btns">
+        {#each soldiers as soldier}
+            <button on:click={() => setSoldierSelection(soldier)}>{soldier} {soldierCount[soldier]}</button>
+        {/each}
+    </div>
 </main>
