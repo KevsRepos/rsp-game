@@ -1,13 +1,15 @@
 <script>
 import { getContext, setContext } from "svelte";
+import ChooseSoldierPicker from "./ChooseSoldierPicker.svelte";
+import { figures } from "./stores";
 
-
-    export let field, arrayAs2dField, setArrayAs2dField, soldier, soldierCount, gameStart;
+    export let field, arrayAs2dField, setArrayAs2dField, figure, gameStart;
 
     const rows = getContext('rows');
     const columns = getContext('columns');
 
     let isOnPlayerClick = false;
+    let pat = null;
 
     const playerClicked = () => {
         isOnPlayerClick = isOnPlayerClick ? false : true;
@@ -61,33 +63,87 @@ import { getContext, setContext } from "svelte";
     }
 
     const movePlayer = () => {
-        const fromSoldier = arrayAs2dField[field.playerFrom.row][field.playerFrom.column].playerSoldier;
+        const selfFigure = arrayAs2dField[field.playerFrom.row][field.playerFrom.column].figure;
 
         setArrayAs2dField(field.place.row, field.place.column, 'self', true);
+        setArrayAs2dField(field.place.row, field.place.column, 'opponent', false);
         setArrayAs2dField(field.place.row, field.place.column, 'showMove', false);
-        setArrayAs2dField(field.place.row, field.place.column, 'playerSoldier', fromSoldier);
+        setArrayAs2dField(field.place.row, field.place.column, 'figure', selfFigure);
 
         setArrayAs2dField(field.playerFrom.row, field.playerFrom.column, 'self', false);
-        setArrayAs2dField(field.playerFrom.row, field.playerFrom.column, 'playerSoldier', null);
+        setArrayAs2dField(field.playerFrom.row, field.playerFrom.column, 'figure', null);
 
         setArrayAs2dField(field.place.row, field.place.column, 'playerFrom', null);
 
         removeMovingPossibilities();
     }
 
-    const emptyFieldClicked = () => {
+    const moveOpponent = () => {
+        setArrayAs2dField(field.place.row, field.place.column, 'opponent', false);
+        setArrayAs2dField(field.place.row, field.place.column, 'freeSpace', true);
 
+        setArrayAs2dField(field.playerFrom.row, field.playerFrom.column, 'figure', field.figure);
+
+        setArrayAs2dField(field.place.row, field.place.column, 'figure', null);
+
+        setArrayAs2dField(field.playerFrom.row, field.playerFrom.column, 'opponent', true);
+        setArrayAs2dField(field.playerFrom.row, field.playerFrom.column, 'self', false);
+        setArrayAs2dField(field.playerFrom.row, field.playerFrom.column, 'showMove', false);
+
+        removeMovingPossibilities();
     }
 
-    const moveToField = () => {
-
+    const revealOpponent = () => {
+        setArrayAs2dField(field.playerFrom.row, field.playerFrom.column, 'opponentRevealed', true);
     }
 
-    const setSoldier = () => {
-        if(soldier !== "" && !field.playerSoldier) {
-            if(soldierCount[soldier] === 0) return;
-            setArrayAs2dField(field.place.row, field.place.column, 'playerSoldier', soldier);
+    const setFigure = (settedFigure = null) => {
+        if(settedFigure) {
+            console.log(settedFigure);
+            setArrayAs2dField(field.playerFrom.row, field.playerFrom.column, 'figure', settedFigure);
+            return;
         }
+
+        if(figure !== "" && !field.figure) {
+            if($figures.attackers[figure] === 0) return;
+
+            if(figure === 'king') $figures.king -= 1;
+            else $figures.attackers[figure] -= 1;
+
+            setArrayAs2dField(field.place.row, field.place.column, 'figure', figure);
+        }
+    }
+
+    const attackOpponent = () => {
+        const opponent = arrayAs2dField[field.place.row][field.place.column];
+        const attacker = arrayAs2dField[field.playerFrom.row][field.playerFrom.column];
+
+        const opponentFigure = opponent.figure;
+        const attackFigure = attacker.figure;
+
+        console.log('Figure: ' + attackFigure);
+        console.log('Opponent Figure: ' + opponentFigure);
+
+        if(opponentFigure === attackFigure) {
+            setTimeout(() => {
+                pat = true;
+                console.log('pat');
+            }, 1000);
+        }else if(
+            (opponentFigure === 'rock' && attackFigure === 'paper') ||
+            (opponentFigure === 'paper' && attackFigure === 'scissor') ||
+            (opponentFigure === 'scissor' && attackFigure === 'rock')
+        ) {
+            movePlayer();
+        }else {
+            moveOpponent();
+            revealOpponent();
+        }
+    }
+
+    $: if(gameStart && field.opponent && pat === false) {
+        console.log('attack opponent again');
+        attackOpponent();
     }
 </script>
 
@@ -105,32 +161,41 @@ import { getContext, setContext } from "svelte";
     }
 </style>
 
-{#if !gameStart && field.self && !field.playerSoldier}
-<div class="box self" on:click={setSoldier}>
-    Du
-</div>
+{#if !gameStart && field.self && !field.figure}
+    <div class="box self" on:click={() => setFigure()}>
+        Du
+    </div>
 {:else if !gameStart && field.self}
-<div class="box self" on:click={setSoldier}>
-    {field.playerSoldier}
-</div>
+    <div class="box self" on:click={setFigure}>
+        {field.figure}
+    </div>
 {:else if gameStart && field.self}
-<div class="box self" on:click={playerClicked}>
-    {field.playerSoldier}
-</div>
+    <div class="box self" on:click={playerClicked}>
+        {field.figure}
+    </div>
 {:else if field.opponent && field.showMove}
-<div class="box opponent showAttackable">
-    Gegner
-</div>
+    <div class="box opponent showAttackable" on:click={attackOpponent}>
+        Gegner
+    </div>
+{:else if field.opponent && field.opponentRevealed}
+    <div class="box opponent">
+        Gegner<br />
+        {field.figure}
+    </div>
 {:else if field.opponent}
-<div class="box opponent">
-    Gegner
-</div>
+    <div class="box opponent">
+        Gegner
+    </div>
 {:else if gameStart && field.showMove}
-<div class="box showMovable" on:click={movePlayer}>
+    <div class="box showMovable" on:click={movePlayer}>
 
-</div>
+    </div>
 {:else}
-<div class="box" on:click={emptyFieldClicked}>
+    <div class="box">
 
-</div>
+    </div>
+{/if}
+
+{#if pat}
+<ChooseSoldierPicker {setFigure} setPatFalse={() => pat = false} />
 {/if}

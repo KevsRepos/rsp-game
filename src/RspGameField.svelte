@@ -1,6 +1,7 @@
 <script>
 import { getContext, onMount, setContext } from "svelte";
 import FieldBox from './FieldBox.svelte';
+import { figures } from "./stores";
 
     const rows = 8;
     const columns = 8;
@@ -10,30 +11,19 @@ import FieldBox from './FieldBox.svelte';
     
     let gameStart = false;
 
-    let currentSoldierSelection = '';
+    let currentFigureSelection = '';
 
-    const soldiers = [
-        'rock',
-        'scissors',
-        'paper',
-        'king'
-    ];
-
-    let soldierCount = {
-        rock: 5,
-        scissors: 5,
-        paper: 5,
-        king: 1
+    $: if(Object.values($figures.attackers).every(x => x === 0) && $figures.king === 0) {
+        // console.log('game');
+        gameStart = true;
     }
+
+    setContext('attackers', $figures.attackers);
 
     let arrayAs2dField = new Array(columns);
 
     const setArrayAs2dField = (row, column, property, value) => {
-       arrayAs2dField[row][column][property] = value;
-
-       if(property === 'playerSoldier' && !gameStart) {
-           soldierCount[value] -= 1;
-       }
+        arrayAs2dField[row][column][property] = value;
     }
 
     for (let rows = 0; rows < arrayAs2dField.length; rows++) {
@@ -47,10 +37,11 @@ import FieldBox from './FieldBox.svelte';
                 },
                 self: false,
                 opponent: false,
+                opponentRevealed: false,
                 freeSpace: false,
                 showMove: false,
                 playerFrom: null,
-                playerSoldier: null
+                figure: null
             };
         }
     }
@@ -60,8 +51,10 @@ import FieldBox from './FieldBox.svelte';
             column.forEach((row, rowIndex) => {
                 if(columnIndex === columns - 2 || columnIndex === columns - 1) {
                     arrayAs2dField[columnIndex][rowIndex].self = true;
+                    // arrayAs2dField[columnIndex][rowIndex].playerSoldier = 'paper';
                 }else if(columnIndex === 0 || columnIndex === 1) {
                     arrayAs2dField[columnIndex][rowIndex].opponent = true;
+                    arrayAs2dField[columnIndex][rowIndex].figure = 'paper';
                 }else {
                     arrayAs2dField[columnIndex][rowIndex].freeSpace = true;
                 }
@@ -69,22 +62,18 @@ import FieldBox from './FieldBox.svelte';
         });
     });
 
-    const setSoldierSelection = (soldier) => {
-        if(soldierCount[soldier] === 0) return;
+    const setFigureSelection = (figure) => {
+        if($figures.attackers[figure] === 0) return;
 
-        if(currentSoldierSelection === soldier) {
-            currentSoldierSelection = '';
+        if(currentFigureSelection === figure) {
+            currentFigureSelection = '';
         }else {
-            currentSoldierSelection = soldier;
+            currentFigureSelection = figure;
         }
     }
 
-    $: console.log(arrayAs2dField);
-
-    $: if(Object.values(soldierCount).every(x => x === 0)) {
-        console.log('game');
-        gameStart = true;
-    }
+    // $: console.log($figures);
+    // $: console.log(arrayAs2dField);
 </script>
 
 <style>
@@ -101,13 +90,14 @@ import FieldBox from './FieldBox.svelte';
     {#each arrayAs2dField as column}
         <div class="row">
             {#each column as row}
-                <FieldBox field={row} {arrayAs2dField} {setArrayAs2dField} soldier={currentSoldierSelection} {soldierCount} {gameStart} />
+                <FieldBox field={row} {arrayAs2dField} {setArrayAs2dField} figure={currentFigureSelection} {gameStart} />
             {/each}
         </div>
     {/each}
     <div class="btns">
-        {#each soldiers as soldier}
-            <button on:click={() => setSoldierSelection(soldier)}>{soldier} {soldierCount[soldier]}</button>
+        {#each Object.entries($figures.attackers) as [attacker, count]}
+            <button on:click={() => setFigureSelection(attacker)}>{attacker} {count}</button>
         {/each}
+        <button on:click={() => setFigureSelection('king')}>King {$figures.king}</button>
     </div>
 </main>
