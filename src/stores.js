@@ -1,4 +1,4 @@
-import { writable } from 'svelte/store';
+import { readable, writable } from 'svelte/store';
 
 export let figures = writable({
     attackers: {
@@ -8,3 +8,5 @@ export let figures = writable({
     },
     king: 1
 });
+
+export const socket = writable();

@@ -1,13 +1,29 @@
 <script>
-import { getContext, onMount, setContext } from "svelte";
-import FieldBox from './FieldBox.svelte';
-import { figures } from "./stores";
+    import { io } from "socket.io-client";
+    import { getContext, onMount, setContext } from "svelte";
+    import ChooseSoldierPicker from "./ChooseSoldierPicker.svelte";
+    import FieldBox from './FieldBox.svelte';
+    import { figures, socket } from "./stores";
 
     const rows = 8;
     const columns = 8;
 
     setContext('rows', rows);
     setContext('columns', columns);
+
+    let opponentFirstMove;
+    let yourMove = false;
+
+    $socket.on('opponentFirstMove', (opponentFigure) => {
+        opponentFirstMove = opponentFigure;
+        console.log('Gegner: ' + opponentFigure);
+    });
+
+    let chooseFirstMove = false;
+
+    // $socket.on('chooseFirstMove', () => {
+    //     chooseFirstMove = true;
+    // });
     
     let gameStart = false;
 
@@ -47,6 +63,8 @@ import { figures } from "./stores";
     }
 
     onMount(() => {
+        chooseFirstMove = true;
+
         arrayAs2dField.forEach((column, columnIndex) => {
             column.forEach((row, rowIndex) => {
                 if(columnIndex === columns - 2 || columnIndex === columns - 1) {
@@ -72,6 +90,39 @@ import { figures } from "./stores";
         }
     }
 
+    const attackOpponent = figure => {
+        const opponentFigure = opponentFirstMove;
+        const attackFigure = figure;
+
+        if(opponentFigure === attackFigure) {
+            setTimeout(() => {
+                chooseFirstMove = true;
+                console.log('pat');
+            }, 1000);
+        }else if(
+            (opponentFigure === 'rock' && attackFigure === 'paper') ||
+            (opponentFigure === 'paper' && attackFigure === 'scissor') ||
+            (opponentFigure === 'scissor' && attackFigure === 'rock')
+        ) {
+            console.log('gewonnen');
+            chooseFirstMove = false;
+            yourMove = true;
+        }else {
+            console.log('verloren');
+            chooseFirstMove = false;
+            yourMove = false;
+        }
+    }
+
+    const setFigure = settedFigure => {
+        if(opponentFirstMove) {
+            attackOpponent(settedFigure);
+        }else {
+            console.log('client: ' + settedFigure);
+            $socket.emit('firstMoveSet', settedFigure);
+        }
+    }
+
     // $: console.log($figures);
     // $: console.log(arrayAs2dField);
 </script>
@@ -90,7 +141,7 @@ import { figures } from "./stores";
     {#each arrayAs2dField as column}
         <div class="row">
             {#each column as row}
-                <FieldBox field={row} {arrayAs2dField} {setArrayAs2dField} figure={currentFigureSelection} {gameStart} />
+                <FieldBox field={row} {arrayAs2dField} {yourMove} {setArrayAs2dField} figure={currentFigureSelection} {gameStart} />
             {/each}
         </div>
     {/each}
@@ -100,4 +151,7 @@ import { figures } from "./stores";
         {/each}
         <button on:click={() => setFigureSelection('king')}>King {$figures.king}</button>
     </div>
+    {#if chooseFirstMove}
+        <ChooseSoldierPicker {setFigure} setPatFalse={() => chooseFirstMove = false} />
+    {/if}
 </main>

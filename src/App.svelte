@@ -1,11 +1,24 @@
 <script>
+    import { io } from "socket.io-client";
     import RspGameField from "./RspGameField.svelte";
+    import { socket } from "./stores";
 
-    let game = "rsp";
+    const findOpponent = () => {
+        $socket = io('http://localhost:3000');
+
+        $socket.on("connect", () => {  console.log($socket.id);});
+
+        $socket.on('initiateGame', () => {
+            game = 'rsp';
+            console.log('Gegner gefunden');
+        });
+    }
+
+    let game = "";
 </script>
 
 {#if game === 'rsp'}
     <RspGameField />
 {:else}
-    <button on:click={() => {game = 'rsp'}}>New Game</button>
+    <button on:click={findOpponent}>Match suchen</button>
 {/if}
