@@ -1,9 +1,9 @@
 <script>
-import { getContext, setContext } from "svelte";
+import { afterUpdate, getContext, onMount, setContext } from "svelte";
 import ChooseSoldierPicker from "./ChooseSoldierPicker.svelte";
-import { figures } from "./stores";
+import { figures, socket } from "./stores";
 
-    export let field, arrayAs2dField, setArrayAs2dField, figure, gameStart;
+    export let field, arrayAs2dField, setArrayAs2dField, figure, gameStart, yourMove;
 
     const rows = getContext('rows');
     const columns = getContext('columns');
@@ -11,7 +11,32 @@ import { figures } from "./stores";
     let isOnPlayerClick = false;
     let pat = null;
 
+    onMount(() => {
+        setTimeout(() => {
+            // console.log(field);
+            if(field.self) {
+                // console.log('huier');
+                setFigure(null, true);
+            }
+        }, 0);
+        // placeFiguresInterval = setInterval(() => {
+        //     if(gameStart) clearInterval(placeFiguresInterval);
+
+        //     placeFiguresCounter--;
+
+        //     if(placeFiguresCounter == 0) {
+        //         clearInterval(placeFiguresInterval);
+
+        //         if(!gameStart) {
+        //             setFigure(null, 'random');
+        //         }
+        //     }
+        // }, 30000);
+    });
+
     const playerClicked = () => {
+        if(!yourMove) return;
+
         isOnPlayerClick = isOnPlayerClick ? false : true;
 
         const nextFields = getNextFields(field.place);
@@ -62,33 +87,59 @@ import { figures } from "./stores";
         });
     }
 
-    const movePlayer = () => {
+    const getMovePermission = () => {
         const selfFigure = arrayAs2dField[field.playerFrom.row][field.playerFrom.column].figure;
 
-        setArrayAs2dField(field.place.row, field.place.column, 'self', true);
-        setArrayAs2dField(field.place.row, field.place.column, 'opponent', false);
-        setArrayAs2dField(field.place.row, field.place.column, 'showMove', false);
-        setArrayAs2dField(field.place.row, field.place.column, 'figure', selfFigure);
+        $socket.emit('movePlayer', {
+            figure: selfFigure,
+            playerPos: {
+                row: field.playerFrom.row, 
+                column: field.playerFrom.column
+            },
+            field: {
+                row: field.place.row, 
+                column: field.place.column
+            }
+        });
 
-        setArrayAs2dField(field.playerFrom.row, field.playerFrom.column, 'self', false);
-        setArrayAs2dField(field.playerFrom.row, field.playerFrom.column, 'figure', null);
+        $socket.on('moveAllowed', isAllowed => {
+            $socket.off('moveAllowed');
+            console.log('allowed: ' + isAllowed);
+            if(!isAllowed) return;
 
-        setArrayAs2dField(field.place.row, field.place.column, 'playerFrom', null);
+            console.log(field);
+            movePlayer();
+        });
+    }
+
+    const movePlayer = (from = field.playerFrom, to = field.place) => {
+        const selfFigure = arrayAs2dField[from.row][from.column].figure;
+
+        setArrayAs2dField(to.row, to.column, 'self', true);
+        setArrayAs2dField(to.row, to.column, 'opponent', false);
+        setArrayAs2dField(to.row, to.column, 'showMove', false);
+        setArrayAs2dField(to.row, to.column, 'figure', selfFigure);
+
+        setArrayAs2dField(from.row, from.column, 'self', false);
+        setArrayAs2dField(from.row, from.column, 'figure', null);
+
+        setArrayAs2dField(to.row, to.column, 'playerFrom', null);
 
         removeMovingPossibilities();
     }
 
-    const moveOpponent = () => {
-        setArrayAs2dField(field.place.row, field.place.column, 'opponent', false);
-        setArrayAs2dField(field.place.row, field.place.column, 'freeSpace', true);
+    const moveOpponent = (from = field.playerFrom, to = field.place) => {
+        console.log('hier');
+        setArrayAs2dField(from.row, from.column, 'opponent', false);
+        setArrayAs2dField(from.row, from.column, 'freeSpace', true);
 
-        setArrayAs2dField(field.playerFrom.row, field.playerFrom.column, 'figure', field.figure);
+        setArrayAs2dField(to.row, to.column, 'figure', field.figure);
 
-        setArrayAs2dField(field.place.row, field.place.column, 'figure', null);
+        setArrayAs2dField(from.row, from.column, 'figure', null);
 
-        setArrayAs2dField(field.playerFrom.row, field.playerFrom.column, 'opponent', true);
-        setArrayAs2dField(field.playerFrom.row, field.playerFrom.column, 'self', false);
-        setArrayAs2dField(field.playerFrom.row, field.playerFrom.column, 'showMove', false);
+        setArrayAs2dField(to.row, to.column, 'opponent', true);
+        setArrayAs2dField(to.row, to.column, 'self', false);
+        setArrayAs2dField(to.row, to.column, 'showMove', false);
 
         removeMovingPossibilities();
     }
@@ -97,13 +148,34 @@ import { figures } from "./stores";
         setArrayAs2dField(field.playerFrom.row, field.playerFrom.column, 'opponentRevealed', true);
     }
 
-    const setFigure = (settedFigure = null) => {
+    const setFigure = (settedFigure = null, random) => {
         if(settedFigure) {
-            console.log(settedFigure);
+            // console.log(settedFigure);
             setArrayAs2dField(field.playerFrom.row, field.playerFrom.column, 'figure', settedFigure);
             return;
         }
 
+        if(random) {
+            let attackers = {...$figures.attackers};
+
+            for (const key in attackers) {
+                if(attackers[key] === 0) {
+                    delete attackers[key];
+                }
+            }
+
+            let keys = Object.keys(attackers);
+
+            const randomFigure = keys[Math.floor(Math.random() * keys.length)];
+
+            figure = randomFigure;
+
+            if($figures.king !== 0) {
+                figure = 'king';
+            }
+        }
+
+        //place figure on field
         if(figure !== "" && !field.figure) {
             if($figures.attackers[figure] === 0) return;
 
@@ -121,13 +193,13 @@ import { figures } from "./stores";
         const opponentFigure = opponent.figure;
         const attackFigure = attacker.figure;
 
-        console.log('Figure: ' + attackFigure);
-        console.log('Opponent Figure: ' + opponentFigure);
+        // console.log('Figure: ' + attackFigure);
+        // console.log('Opponent Figure: ' + opponentFigure);
 
         if(opponentFigure === attackFigure) {
             setTimeout(() => {
                 pat = true;
-                console.log('pat');
+                // console.log('pat');
             }, 1000);
         }else if(
             (opponentFigure === 'rock' && attackFigure === 'paper') ||
@@ -141,10 +213,10 @@ import { figures } from "./stores";
         }
     }
 
-    $: if(gameStart && field.opponent && pat === false) {
-        console.log('attack opponent again');
-        attackOpponent();
-    }
+    // $: if(gameStart && field.opponent && pat === false) {
+    //     // console.log('attack opponent again');
+    //     attackOpponent();
+    // }
 </script>
 
 <style>
@@ -174,7 +246,7 @@ import { figures } from "./stores";
         {field.figure}
     </div>
 {:else if field.opponent && field.showMove}
-    <div class="box opponent showAttackable" on:click={attackOpponent}>
+    <div class="box opponent showAttackable" on:click={getMovePermission}>
         Gegner
     </div>
 {:else if field.opponent && field.opponentRevealed}
@@ -187,7 +259,7 @@ import { figures } from "./stores";
         Gegner
     </div>
 {:else if gameStart && field.showMove}
-    <div class="box showMovable" on:click={movePlayer}>
+    <div class="box showMovable" on:click={getMovePermission}>
 
     </div>
 {:else}

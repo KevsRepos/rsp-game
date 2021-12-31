@@ -30,7 +30,7 @@ import { getContext, onMount } from "svelte";
         top: 50vh;
         left: 50vw;
         transform: translate(-50%, -50%);
-        background-color: #eeeeee;
+        background-color: #333;
         padding: 30px;
     }
 </style>

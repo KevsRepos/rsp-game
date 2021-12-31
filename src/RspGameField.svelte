@@ -11,13 +11,7 @@
     setContext('rows', rows);
     setContext('columns', columns);
 
-    let opponentFirstMove;
     let yourMove = false;
-
-    $socket.on('opponentFirstMove', (opponentFigure) => {
-        opponentFirstMove = opponentFigure;
-        console.log('Gegner: ' + opponentFigure);
-    });
 
     let chooseFirstMove = false;
 
@@ -29,9 +23,81 @@
 
     let currentFigureSelection = '';
 
-    $: if(Object.values($figures.attackers).every(x => x === 0) && $figures.king === 0) {
-        // console.log('game');
+    $: if(Object.values($figures.attackers).every(x => x === 0) && $figures.king === 0 && !gameStart) {
+        let figuresArray = [];
+
+        for (let i = 0; i < arrayAs2dField.length; i++) {
+            for (let j = 0; j < arrayAs2dField[i].length; j++) {
+                if(arrayAs2dField[i][j].self) {
+                    figuresArray.push(arrayAs2dField[i][j].figure);
+                }
+            }
+        }
+
+        // console.log(figuresArray);
+
+        $socket.emit('setFigures', figuresArray);
         gameStart = true;
+    }
+
+    $socket.on('firstMoveHas', data => {
+        // console.log(data);
+        if(data === null) {
+            chooseFirstMove = true;
+        }else {
+            if(data === $socket.id) {
+                yourMove = true;
+            }
+        }
+    });
+
+    $socket.on('opponentMoveTo', ([from, to]) => {
+        console.log('opponent moves');
+        // console.log(from);
+        // console.log(to);
+        moveOpponent(from, to);
+    });
+
+    $socket.on('callerLost', ({caller, from, to, fromInverted, toInverted, opponent}) => {
+        console.log(caller);
+        console.log(opponent);
+
+        if(caller === $socket.id) {
+            console.log('Du bist caller');
+        }else {
+            console.log('Gegner ist caller');
+        }
+
+        if(caller === $socket.id) moveOpponent(to, from, true, opponent); 
+        else movePlayer(toInverted, fromInverted);
+    });
+
+    const movePlayer = (from, to) => {
+        const selfFigure = arrayAs2dField[from.row][from.column].figure;
+
+        setArrayAs2dField(to.row, to.column, 'self', true);
+        setArrayAs2dField(to.row, to.column, 'opponent', false);
+        setArrayAs2dField(to.row, to.column, 'showMove', false);
+        setArrayAs2dField(to.row, to.column, 'figure', selfFigure);
+
+        setArrayAs2dField(from.row, from.column, 'self', false);
+
+        setArrayAs2dField(to.row, to.column, 'playerFrom', null);
+    }
+
+    const moveOpponent = (from, to, revealPlayer, figure) => {
+        setArrayAs2dField(from.row, from.column, 'opponent', false);
+        // setArrayAs2dField(from.row, from.column, 'freeSpace', true);
+
+        setArrayAs2dField(to.row, to.column, 'figure', figure);
+
+        setArrayAs2dField(from.row, from.column, 'figure', null);
+
+        setArrayAs2dField(to.row, to.column, 'opponent', true);
+        setArrayAs2dField(to.row, to.column, 'self', false);
+        setArrayAs2dField(to.row, to.column, 'showMove', false);
+
+        setArrayAs2dField(to.row, to.column, 'opponentRevealed', revealPlayer);
     }
 
     setContext('attackers', $figures.attackers);
@@ -63,7 +129,7 @@
     }
 
     onMount(() => {
-        chooseFirstMove = true;
+        // chooseFirstMove = true;
 
         arrayAs2dField.forEach((column, columnIndex) => {
             column.forEach((row, rowIndex) => {
@@ -90,41 +156,16 @@
         }
     }
 
-    const attackOpponent = figure => {
-        const opponentFigure = opponentFirstMove;
-        const attackFigure = figure;
-
-        if(opponentFigure === attackFigure) {
-            setTimeout(() => {
-                chooseFirstMove = true;
-                console.log('pat');
-            }, 1000);
-        }else if(
-            (opponentFigure === 'rock' && attackFigure === 'paper') ||
-            (opponentFigure === 'paper' && attackFigure === 'scissor') ||
-            (opponentFigure === 'scissor' && attackFigure === 'rock')
-        ) {
-            console.log('gewonnen');
-            chooseFirstMove = false;
-            yourMove = true;
-        }else {
-            console.log('verloren');
-            chooseFirstMove = false;
-            yourMove = false;
-        }
-    }
-
     const setFigure = settedFigure => {
-        if(opponentFirstMove) {
-            attackOpponent(settedFigure);
-        }else {
-            console.log('client: ' + settedFigure);
-            $socket.emit('firstMoveSet', settedFigure);
-        }
+        // console.log(settedFigure);
+        // console.log('client: ' + settedFigure);
+        $socket.emit('firstMove', settedFigure);
     }
+
+    $: if(gameStart) chooseFirstMove = true;
 
     // $: console.log($figures);
-    // $: console.log(arrayAs2dField);
+    // $: console.table(arrayAs2dField);
 </script>
 
 <style>
@@ -141,7 +182,7 @@
     {#each arrayAs2dField as column}
         <div class="row">
             {#each column as row}
-                <FieldBox field={row} {arrayAs2dField} {yourMove} {setArrayAs2dField} figure={currentFigureSelection} {gameStart} />
+                <FieldBox field={row} {arrayAs2dField} {setArrayAs2dField} figure={currentFigureSelection} {gameStart} {yourMove} />
             {/each}
         </div>
     {/each}
