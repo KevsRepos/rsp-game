@@ -11,5 +11,6 @@ div {
     padding: 20px;
     background-color: #333333;
     color: #ffffff;
+    box-shadow: 0px 0px 5px #bbbbbb;
 }
 </style>

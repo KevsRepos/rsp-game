@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../rsp-game-backend"
+		}
+	],
+	"settings": {}
+}

@@ -1,4 +1,6 @@
 <script>
+import { onMount } from "svelte";
+
 import { figures, socket } from "/src/stores";
 
 export let field, gameField, setGameField, figure, gameStart, yourMove, rotate;
@@ -67,8 +69,7 @@ const movePlayer = () => {
     });
 }
 
-const setFigure = () => {
-    let random = false;
+const setFigure = (random = false) => {
     if(random) {
         let attackers = {...$figures.attackers};
 
@@ -92,7 +93,7 @@ const setFigure = () => {
     if(figure) {
         if($figures.attackers[figure] === 0) return;
 
-        $socket.emit('figurePlaced', {
+        $socket.emit('placeFigure', {
             coords: {
                 row: field.coords.row,
                 column: field.coords.column
@@ -104,34 +105,44 @@ const setFigure = () => {
         else $figures.attackers[figure] -= 1;
     }
 }
+
+$: if(rotate) {
+    setFigure(true);
+}
 </script>
 
 <span class:rotate={rotate}>
     {#if !gameStart && field.player === $socket.id && !field.figure}
         <div class="box self" on:click={setFigure}>
-            Du
+            
         </div>
     {:else if !gameStart && field.player === $socket.id}
         <div class="box self">
-            {field.figure}
+            <img alt="figure" src="/assets/{field.figure}.webp" />
         </div>
     {:else if gameStart && field.player === $socket.id}
         <div class="box self" on:click={playerClicked}>
-            {field.figure}
+            <img alt="figure" src="/assets/{field.figure}.webp" />
         </div>
     {:else if field.player !== $socket.id && field.player && field?.showMove}
         <div class="box opponent showAttackable" on:click={movePlayer}>
-            Gegner
-            {field.figure}
+            {#if field.figure === ""}
+                <img alt="figure" src="/assets/opponent.jpg" />
+            {:else}
+                <img alt="figure" src="/assets/{field.figure}.webp" />
+            {/if}
         </div>
     {:else if field.player !== $socket.id && field.player && field.figure !== null}
         <div class="box opponent">
-            Gegner
-            {field.figure}
+            {#if field.figure === ""}
+                <img alt="figure" src="/assets/opponent.jpg" />
+            {:else}
+                <img alt="figure" src="/assets/{field.figure}.webp" />
+            {/if}
         </div>
     {:else if field.player !== $socket.id && field.player}
         <div class="box opponent">
-            
+
         </div>
     {:else if gameStart && field?.showMove}
         <div class="box showMovable" on:click={movePlayer}>
@@ -145,18 +156,28 @@ const setFigure = () => {
 </span>
 
 <style>
+img {
+    height: 45px;
+    width: 45px;
+}
 .rotate {
     transform: rotateX(-180deg);
 }
 .box {
-    height: calc(100vw / 8);;
-    width: calc(100vw / 8);
+    height: 45px;
+    width: 45px;
     border: 1px black solid;
 }
 .showMovable {
-    background-color: green;
+    background-color: rgba(85, 252, 85, 0.445);
 }
 .showAttackable {
-    background-color: red;
+    background-color: rgba(255, 15, 15, 0.527);
+}
+.self {
+    background-color: rgba(62, 62, 255, 0.356);
+}
+.opponent {
+    background-color: rgba(255, 92, 92, 0.39);
 }
 </style>
